@@ -1,0 +1,11 @@
+*~
+.sw?
+.*.sw?
+*.beam
+/.erlang.mk/
+/cover/
+/deps/
+/ebin/
+
+/hexpm
+/hexpm-cli.d

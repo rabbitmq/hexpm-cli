@@ -1,0 +1,25 @@
+# vim:sw=2:et:
+
+sudo: false
+
+language: erlang
+otp_release:
+  - "17.5"
+  - "18.3"
+  - "19.1"
+
+script:
+  - make escript
+  - ./hexpm info rabbit_common
+  - make tests
+
+addons:
+  apt:
+    packages:
+      - p7zip-full
+cache:
+  apt: true
+
+notifications:
+  email:
+    - alerts@rabbitmq.com
