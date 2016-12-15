@@ -17,7 +17,7 @@ dash_h_test() ->
 
 dash_v_test() ->
     ?assertMatch(
-       ?USAGE_PREAMBULE,
+       [$h,$e,$x,$p,$m,$\s | _],
        ?cmd("./hexpm -v")).
 
 help_cmd_test() ->

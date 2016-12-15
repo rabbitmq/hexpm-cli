@@ -10,7 +10,8 @@ main([]) ->
     usage(standard_io),
     run_rebar(["help", "hex"]);
 main(["-v" | _]) ->
-    usage(standard_io);
+    version(standard_io),
+    run_rebar(["-v"]);
 main(["-h" | _]) ->
     usage(standard_io),
     run_rebar(["help", "hex"]);
@@ -28,6 +29,11 @@ run_rebar(Args) ->
 
 usage(IO) ->
     io:format(IO, "Usage: ~s <task>~n", [progname()]).
+
+version(IO) ->
+    application:load('hexpm-cli'),
+    {ok, Version} = application:get_key('hexpm-cli', vsn),
+    io:format(IO, "~s ~s~n", [progname(), Version]).
 
 progname() ->
     filename:basename(escript:script_name()).
