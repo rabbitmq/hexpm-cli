@@ -1,5 +1,5 @@
 PROJECT = hexpm-cli
-PROJECT_VERSION = 0.1.0-beta.1
+PROJECT_VERSION = 0.1.0
 PROJECT_DESCRIPTION = CLI on top of rebar3_hex plugin
 
 DEPS = rebar
