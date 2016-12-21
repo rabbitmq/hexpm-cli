@@ -9,10 +9,12 @@
 main([]) ->
     usage(standard_io),
     run_rebar(["help", "hex"]);
-main(["-v" | _]) ->
+main([VersionFlag | _])
+  when VersionFlag =:= "-v" orelse VersionFlag =:= "--version" ->
     version(standard_io),
     run_rebar(["-v"]);
-main(["-h" | _]) ->
+main([HelpFlag | _])
+  when HelpFlag =:= "-h" orelse HelpFlag =:= "--help" ->
     usage(standard_io),
     run_rebar(["help", "hex"]);
 main(["help" | Args]) ->
