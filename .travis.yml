@@ -9,9 +9,9 @@ otp_release:
   - "19.1"
 
 script:
-  - make escript
-  - ./hexpm info rabbit_common
-  - make tests
+  - make escript FULL=1
+  - ./hexpm search rabbit_common
+  - make tests FULL=1
 
 addons:
   apt:
