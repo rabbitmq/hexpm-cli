@@ -47,14 +47,14 @@ for more informations.
 
 ## Internals
 
-To achieve that, it simply depends on Both `rebar` and `rebar3_hex` and
+To achieve that, it simply depends on both `rebar` and `rebar3_hex` and
 overrides the `rebar_app_info:app_file_src/1` function to return the
 path to the `.app` file instead. This way, `rebar3_hex` reads metadata
 from the generated `.app` file instead of `.app.src` which may not exist
 in an Erlang.mk-based project.
 
 It also overrides a few more modules to make sure the `rebar3_hex`
-plugin is installed and `hexpm` doesn't read the glboal Rebar3
+plugin is installed and `hexpm` doesn't read the global Rebar3
 configuration.
 
 The CLI wrapper directly calls `rebar:main/1` but first, it makes sure
