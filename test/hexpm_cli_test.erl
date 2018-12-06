@@ -26,7 +26,7 @@ help_cmd_test() ->
         $r,$e,$b,$a,$r,$3,$\s,$h,$e,$x,$\s,$p,$u,$b,$l,$i,$s,$h | _],
        ?cmd("./hexpm help publish")).
 
-info_test() ->
+search_cmd_test() ->
     ?assertMatch(
-       [$r,$a,$b,$b,$i,$t,$_,$c,$o,$m,$m,$o,$n | _],
-       ?cmd("./hexpm info rabbit_common")).
+       [$R, $e, $s, $u, $l, $t, $s, $:, $\n | _],
+       ?cmd("./hexpm search rabbit_common")).
