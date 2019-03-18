@@ -3,7 +3,7 @@ PROJECT_VERSION = 0.2.0
 PROJECT_DESCRIPTION = CLI on top of rebar3_hex plugin
 
 DEPS = rebar
-dep_rebar_commit = 3.7.5
+dep_rebar_commit = 3.9.0
 
 ESCRIPT_FILE = hexpm
 
