@@ -17,16 +17,16 @@
 ERLANG_MK_FILENAME := $(realpath $(lastword $(MAKEFILE_LIST)))
 export ERLANG_MK_FILENAME
 
-ERLANG_MK_VERSION = 6b213a5
+ERLANG_MK_VERSION = fb87e18
 ERLANG_MK_WITHOUT = 
 
 # Make 3.81 and 3.82 are deprecated.
 
-ifeq ($(MAKE_VERSION),3.81)
+ifeq ($(MAKELEVEL)$(MAKE_VERSION),03.81)
 $(warning Please upgrade to GNU Make 4 or later: https://erlang.mk/guide/installation.html)
 endif
 
-ifeq ($(MAKE_VERSION),3.82)
+ifeq ($(MAKELEVEL)$(MAKE_VERSION),03.82)
 $(warning Please upgrade to GNU Make 4 or later: https://erlang.mk/guide/installation.html)
 endif
 
@@ -54,6 +54,10 @@ endif
 gen_verbose_0 = @echo " GEN   " $@;
 gen_verbose_2 = set -x;
 gen_verbose = $(gen_verbose_$(V))
+
+gen_verbose_esc_0 = @echo " GEN   " $$@;
+gen_verbose_esc_2 = set -x;
+gen_verbose_esc = $(gen_verbose_esc_$(V))
 
 # Temporary files directory.
 
@@ -114,6 +118,9 @@ ifneq ($(wildcard erl_crash.dump),)
 endif
 
 distclean:: clean distclean-tmp
+
+$(ERLANG_MK_TMP):
+	$(verbose) mkdir -p $(ERLANG_MK_TMP)
 
 distclean-tmp:
 	$(gen_verbose) rm -rf $(ERLANG_MK_TMP)
@@ -177,7 +184,8 @@ core_http_get = curl -Lf$(if $(filter-out 0,$(V)),,s)o $(call core_native_path,$
 
 core_eq = $(and $(findstring $(1),$(2)),$(findstring $(2),$(1)))
 
-core_find = $(if $(wildcard $1),$(shell find $(1:%/=%) -type f -name $(subst *,\*,$2)))
+# We skip files that contain spaces because they end up causing issues.
+core_find = $(if $(wildcard $1),$(shell find $(1:%/=%) -type f -name $(subst *,\*,$2) | grep -v " "))
 
 core_lc = $(subst A,a,$(subst B,b,$(subst C,c,$(subst D,d,$(subst E,e,$(subst F,f,$(subst G,g,$(subst H,h,$(subst I,i,$(subst J,j,$(subst K,k,$(subst L,l,$(subst M,m,$(subst N,n,$(subst O,o,$(subst P,p,$(subst Q,q,$(subst R,r,$(subst S,s,$(subst T,t,$(subst U,u,$(subst V,v,$(subst W,w,$(subst X,x,$(subst Y,y,$(subst Z,z,$(1)))))))))))))))))))))))))))
 
@@ -255,8 +263,7 @@ endef
 
 $(KERL): $(KERL_DIR)
 
-$(KERL_DIR):
-	$(verbose) mkdir -p $(ERLANG_MK_TMP)
+$(KERL_DIR): | $(ERLANG_MK_TMP)
 	$(gen_verbose) git clone --depth 1 $(KERL_GIT) $(ERLANG_MK_TMP)/kerl
 	$(verbose) cd $(ERLANG_MK_TMP)/kerl && git checkout $(KERL_COMMIT)
 	$(verbose) chmod +x $(KERL)
@@ -1920,6 +1927,14 @@ pkg_gen_icmp_fetch = git
 pkg_gen_icmp_repo = https://github.com/msantos/gen_icmp
 pkg_gen_icmp_commit = master
 
+PACKAGES += gen_leader
+pkg_gen_leader_name = gen_leader
+pkg_gen_leader_description = leader election behavior
+pkg_gen_leader_homepage = https://github.com/garret-smith/gen_leader_revival
+pkg_gen_leader_fetch = git
+pkg_gen_leader_repo = https://github.com/garret-smith/gen_leader_revival
+pkg_gen_leader_commit = master
+
 PACKAGES += gen_nb_server
 pkg_gen_nb_server_name = gen_nb_server
 pkg_gen_nb_server_description = OTP behavior for writing non-blocking servers
@@ -1935,6 +1950,14 @@ pkg_gen_paxos_homepage = https://github.com/gburd/gen_paxos
 pkg_gen_paxos_fetch = git
 pkg_gen_paxos_repo = https://github.com/gburd/gen_paxos
 pkg_gen_paxos_commit = master
+
+PACKAGES += gen_rpc
+pkg_gen_rpc_name = gen_rpc
+pkg_gen_rpc_description = A scalable RPC library for Erlang-VM based languages
+pkg_gen_rpc_homepage = https://github.com/priestjim/gen_rpc.git
+pkg_gen_rpc_fetch = git
+pkg_gen_rpc_repo = https://github.com/priestjim/gen_rpc.git
+pkg_gen_rpc_commit = master
 
 PACKAGES += gen_smtp
 pkg_gen_smtp_name = gen_smtp
@@ -3015,6 +3038,14 @@ pkg_percept2_homepage = https://github.com/huiqing/percept2
 pkg_percept2_fetch = git
 pkg_percept2_repo = https://github.com/huiqing/percept2
 pkg_percept2_commit = master
+
+PACKAGES += pgo
+pkg_pgo_name = pgo
+pkg_pgo_description = Erlang Postgres client and connection pool
+pkg_pgo_homepage = https://github.com/erleans/pgo.git
+pkg_pgo_fetch = git
+pkg_pgo_repo = https://github.com/erleans/pgo.git
+pkg_pgo_commit = master
 
 PACKAGES += pgsql
 pkg_pgsql_name = pgsql
@@ -4274,6 +4305,9 @@ export DEPS_DIR
 REBAR_DEPS_DIR = $(DEPS_DIR)
 export REBAR_DEPS_DIR
 
+REBAR_GIT ?= https://github.com/rebar/rebar
+REBAR_COMMIT ?= 576e12171ab8d69b048b827b92aa65d067deea01
+
 # External "early" plugins (see core/plugins.mk for regular plugins).
 # They both use the core_dep_plugin macro.
 
@@ -4331,28 +4365,31 @@ dep_verbose = $(dep_verbose_$(V))
 # Optimization: don't recompile deps unless truly necessary.
 
 ifndef IS_DEP
+ifneq ($(MAKELEVEL),0)
 $(shell rm -f ebin/dep_built)
+endif
 endif
 
 # Core targets.
 
-apps:: $(ALL_APPS_DIRS) clean-tmp-deps.log
-ifeq ($(IS_APP)$(IS_DEP),)
-	$(verbose) rm -f $(ERLANG_MK_TMP)/apps.log
-endif
-	$(verbose) mkdir -p $(ERLANG_MK_TMP)
+ALL_APPS_DIRS_TO_BUILD = $(if $(LOCAL_DEPS_DIRS)$(IS_APP),$(LOCAL_DEPS_DIRS),$(ALL_APPS_DIRS))
+
+apps:: $(ALL_APPS_DIRS) clean-tmp-deps.log | $(ERLANG_MK_TMP)
 # Create ebin directory for all apps to make sure Erlang recognizes them
 # as proper OTP applications when using -include_lib. This is a temporary
 # fix, a proper fix would be to compile apps/* in the right order.
 ifndef IS_APP
+ifneq ($(ALL_APPS_DIRS),)
 	$(verbose) set -e; for dep in $(ALL_APPS_DIRS) ; do \
 		mkdir -p $$dep/ebin; \
 	done
 endif
+endif
 # At the toplevel: if LOCAL_DEPS is defined with at least one local app, only
 # compile that list of apps. Otherwise, compile everything.
 # Within an app: compile all LOCAL_DEPS that are (uncompiled) local apps.
-	$(verbose) set -e; for dep in $(if $(LOCAL_DEPS_DIRS)$(IS_APP),$(LOCAL_DEPS_DIRS),$(ALL_APPS_DIRS)) ; do \
+ifneq ($(ALL_APPS_DIRS_TO_BUILD),)
+	$(verbose) set -e; for dep in $(ALL_APPS_DIRS_TO_BUILD); do \
 		if grep -qs ^$$dep$$ $(ERLANG_MK_TMP)/apps.log; then \
 			:; \
 		else \
@@ -4360,18 +4397,19 @@ endif
 			$(MAKE) -C $$dep $(if $(IS_TEST),test-build-app) IS_APP=1; \
 		fi \
 	done
+endif
 
 clean-tmp-deps.log:
 ifeq ($(IS_APP)$(IS_DEP),)
-	$(verbose) rm -f $(ERLANG_MK_TMP)/deps.log
+	$(verbose) rm -f $(ERLANG_MK_TMP)/apps.log $(ERLANG_MK_TMP)/deps.log
 endif
 
 ifneq ($(SKIP_DEPS),)
 deps::
 else
-deps:: $(ALL_DEPS_DIRS) apps clean-tmp-deps.log
-	$(verbose) mkdir -p $(ERLANG_MK_TMP)
-	$(verbose) set -e; for dep in $(ALL_DEPS_DIRS) ; do \
+deps:: $(ALL_DEPS_DIRS) apps clean-tmp-deps.log | $(ERLANG_MK_TMP)
+ifneq ($(ALL_DEPS_DIRS),)
+	$(verbose) set -e; for dep in $(ALL_DEPS_DIRS); do \
 		if grep -qs ^$$dep$$ $(ERLANG_MK_TMP)/deps.log; then \
 			:; \
 		else \
@@ -4387,6 +4425,7 @@ deps:: $(ALL_DEPS_DIRS) apps clean-tmp-deps.log
 			fi \
 		fi \
 	done
+endif
 endif
 
 # Deps related targets.
@@ -4462,7 +4501,6 @@ endef
 
 # We use flock/lockf when available to avoid concurrency issues.
 define dep_autopatch_fetch_rebar
-	mkdir -p $(ERLANG_MK_TMP); \
 	if command -v flock >/dev/null; then \
 		flock $(ERLANG_MK_TMP)/rebar.lock sh -c "$(call dep_autopatch_fetch_rebar2)"; \
 	elif command -v lockf >/dev/null; then \
@@ -4474,9 +4512,9 @@ endef
 
 define dep_autopatch_fetch_rebar2
 	if [ ! -d $(ERLANG_MK_TMP)/rebar ]; then \
-		git clone -q -n -- https://github.com/rebar/rebar $(ERLANG_MK_TMP)/rebar; \
+		git clone -q -n -- $(REBAR_GIT) $(ERLANG_MK_TMP)/rebar; \
 		cd $(ERLANG_MK_TMP)/rebar; \
-		git checkout -q 576e12171ab8d69b048b827b92aa65d067deea01; \
+		git checkout -q $(REBAR_COMMIT); \
 		./bootstrap; \
 		cd -; \
 	fi
@@ -4571,13 +4609,22 @@ define dep_autopatch_rebar.erl
 				false
 		end
 	end,
+	SemVsn = fun
+		("~> " ++ S) ->
+			case length([ok || $$. <- S]) of
+				0 -> S ++ ".0.0";
+				1 -> S ++ ".0";
+				_ -> S
+			end;
+		(S) -> S
+	end,
 	fun() ->
 		File = case lists:keyfind(deps, 1, Conf) of
 			false -> [];
 			{_, Deps} ->
 				[begin case case Dep of
 							N when is_atom(N) -> GetHexVsn(N);
-							{N, S} when is_atom(N), is_list(S) -> {N, {hex, S}};
+							{N, S} when is_atom(N), is_list(S) -> {N, {hex, SemVsn(S)}};
 							{_, S, {pkg, N}} -> {N, {hex, S}};
 							{N, S} when is_tuple(S) -> {N, S};
 							{N, _, S} -> {N, S};
@@ -4604,6 +4651,8 @@ define dep_autopatch_rebar.erl
 			{_, Files} ->
 				Names = [[" ", case lists:reverse(F) of
 					"lre." ++ Elif -> lists:reverse(Elif);
+					"lrx." ++ Elif -> lists:reverse(Elif);
+					"lry." ++ Elif -> lists:reverse(Elif);
 					Elif -> lists:reverse(Elif)
 				end] || "src/" ++ F <- Files],
 				Write(io_lib:format("COMPILE_FIRST +=~s\n", [Names]))
@@ -4643,7 +4692,7 @@ define dep_autopatch_rebar.erl
 	end(),
 	ShellToMk = fun(V0) ->
 		V1 = re:replace(V0, "[$$][(]", "$$\(shell ", [global]),
-		V = re:replace(V1, "(\\\\$$$$)(?![(])(\\\\w*)", "\\\\1(\\\\2)", [global]),
+		V = re:replace(V1, "([$$])(?![(])(\\\\w*)", "\\\\1(\\\\2)", [global]),
 		re:replace(V, "-Werror\\\\b", "", [{return, list}, global])
 	end,
 	PortSpecs = fun() ->
@@ -4677,7 +4726,7 @@ define dep_autopatch_rebar.erl
 	case PortSpecs of
 		[] -> ok;
 		_ ->
-			Write("\npre-app::\n\t$$\(MAKE) -f c_src/Makefile.erlang.mk\n"),
+			Write("\npre-app::\n\t@$$\(MAKE) --no-print-directory -f c_src/Makefile.erlang.mk\n"),
 			PortSpecWrite(io_lib:format("ERL_CFLAGS ?= -finline-functions -Wall -fPIC -I \\"~s/erts-~s/include\\" -I \\"~s\\"\n",
 				[code:root_dir(), erlang:system_info(version), code:lib_dir(erl_interface, include)])),
 			PortSpecWrite(io_lib:format("ERL_LDFLAGS ?= -L \\"~s\\" -lerl_interface -lei\n",
@@ -4714,7 +4763,7 @@ define dep_autopatch_rebar.erl
 						darwin -> "\n\nLDFLAGS += -flat_namespace -undefined suppress";
 						_ -> ""
 					end,
-					"\n\nall:: ", Output, "\n\n",
+					"\n\nall:: ", Output, "\n\t@:\n\n",
 					"%.o: %.c\n\t$$\(CC) -c -o $$\@ $$\< $$\(CFLAGS) $$\(ERL_CFLAGS) $$\(DRV_CFLAGS) $$\(EXE_CFLAGS)\n\n",
 					"%.o: %.C\n\t$$\(CXX) -c -o $$\@ $$\< $$\(CXXFLAGS) $$\(ERL_CFLAGS) $$\(DRV_CFLAGS) $$\(EXE_CFLAGS)\n\n",
 					"%.o: %.cc\n\t$$\(CXX) -c -o $$\@ $$\< $$\(CXXFLAGS) $$\(ERL_CFLAGS) $$\(DRV_CFLAGS) $$\(EXE_CFLAGS)\n\n",
@@ -4893,7 +4942,7 @@ define dep_fetch
 endef
 
 define dep_target
-$(DEPS_DIR)/$(call dep_name,$1):
+$(DEPS_DIR)/$(call dep_name,$1): | $(ERLANG_MK_TMP)
 	$(eval DEP_NAME := $(call dep_name,$1))
 	$(eval DEP_STR := $(if $(filter $1,$(DEP_NAME)),$1,"$1 ($(DEP_NAME))"))
 	$(verbose) if test -d $(APPS_DIR)/$(DEP_NAME); then \
@@ -5029,15 +5078,9 @@ ifneq ($(wildcard src/),)
 
 # Targets.
 
-ifeq ($(wildcard ebin/test),)
-app:: deps
+app:: $(if $(wildcard ebin/test),clean) deps
 	$(verbose) $(MAKE) --no-print-directory $(PROJECT).d
 	$(verbose) $(MAKE) --no-print-directory app-build
-else
-app:: clean deps
-	$(verbose) $(MAKE) --no-print-directory $(PROJECT).d
-	$(verbose) $(MAKE) --no-print-directory app-build
-endif
 
 ifeq ($(wildcard src/$(PROJECT_MOD).erl),)
 define app_file
@@ -5251,10 +5294,10 @@ $(PROJECT).d:: $(ERL_FILES) $(call core_find,include/,*.hrl) $(MAKEFILE_LIST)
 	$(makedep_verbose) $(call erlang,$(call makedep.erl,$@))
 endif
 
+ifeq ($(IS_APP)$(IS_DEP),)
 ifneq ($(words $(ERL_FILES) $(CORE_FILES) $(ASN1_FILES) $(MIB_FILES) $(XRL_FILES) $(YRL_FILES)),0)
 # Rebuild everything when the Makefile changes.
-$(ERLANG_MK_TMP)/last-makefile-change: $(MAKEFILE_LIST)
-	$(verbose) mkdir -p $(ERLANG_MK_TMP)
+$(ERLANG_MK_TMP)/last-makefile-change: $(MAKEFILE_LIST) | $(ERLANG_MK_TMP)
 	$(verbose) if test -f $@; then \
 		touch $(ERL_FILES) $(CORE_FILES) $(ASN1_FILES) $(MIB_FILES) $(XRL_FILES) $(YRL_FILES); \
 		touch -c $(PROJECT).d; \
@@ -5264,6 +5307,10 @@ $(ERLANG_MK_TMP)/last-makefile-change: $(MAKEFILE_LIST)
 $(ERL_FILES) $(CORE_FILES) $(ASN1_FILES) $(MIB_FILES) $(XRL_FILES) $(YRL_FILES):: $(ERLANG_MK_TMP)/last-makefile-change
 ebin/$(PROJECT).app:: $(ERLANG_MK_TMP)/last-makefile-change
 endif
+endif
+
+$(PROJECT).d::
+	$(verbose) :
 
 include $(wildcard $(PROJECT).d)
 
@@ -6095,8 +6142,8 @@ ifeq ($(PLATFORM),msys2)
 	CXXFLAGS ?= -O3 -finline-functions -Wall
 else ifeq ($(PLATFORM),darwin)
 	CC ?= cc
-	CFLAGS ?= -O3 -std=c99 -arch x86_64 -finline-functions -Wall -Wmissing-prototypes
-	CXXFLAGS ?= -O3 -arch x86_64 -finline-functions -Wall
+	CFLAGS ?= -O3 -std=c99 -arch x86_64 -Wall -Wmissing-prototypes
+	CXXFLAGS ?= -O3 -arch x86_64 -Wall
 	LDFLAGS ?= -arch x86_64 -flat_namespace -undefined suppress
 else ifeq ($(PLATFORM),freebsd)
 	CC ?= cc
@@ -6451,7 +6498,7 @@ endif
 define ct_suite_target
 ct-$(1): test-build
 	$(verbose) mkdir -p $(CT_LOGS_DIR)
-	$(gen_verbose) $(CT_RUN) -sname ct_$(PROJECT) -suite $(addsuffix _SUITE,$(1)) $(CT_EXTRA) $(CT_OPTS)
+	$(gen_verbose_esc) $(CT_RUN) -sname ct_$(PROJECT) -suite $(addsuffix _SUITE,$(1)) $(CT_EXTRA) $(CT_OPTS)
 endef
 
 $(foreach test,$(CT_SUITES),$(eval $(call ct_suite_target,$(test))))
@@ -6599,8 +6646,7 @@ BEAM_FILES += $(addsuffix .beam,$(addprefix ebin/,$(DTL_MODULES)))
 
 ifneq ($(words $(DTL_FILES)),0)
 # Rebuild templates when the Makefile changes.
-$(ERLANG_MK_TMP)/last-makefile-change-erlydtl: $(MAKEFILE_LIST)
-	$(verbose) mkdir -p $(ERLANG_MK_TMP)
+$(ERLANG_MK_TMP)/last-makefile-change-erlydtl: $(MAKEFILE_LIST) | $(ERLANG_MK_TMP)
 	$(verbose) if test -f $@; then \
 		touch $(DTL_FILES); \
 	fi
@@ -6663,6 +6709,7 @@ help::
 
 # Plugin-specific targets.
 
+escript-zip:: FULL=1
 escript-zip:: deps app
 	$(verbose) mkdir -p $(dir $(ESCRIPT_ZIP))
 	$(verbose) rm -f $(ESCRIPT_ZIP_FILE)
@@ -6707,28 +6754,13 @@ help::
 # Plugin-specific targets.
 
 define eunit.erl
-	Enabled = case "$(COVER)" of
-		"" -> false;
-		_ ->
-			case filelib:is_dir("ebin") of
-				false -> false;
-				true ->
-					case cover:compile_beam_directory("ebin") of
-						{error, _} -> halt(1);
-						_ -> true
-					end
-			end
-	end,
+	$(call cover.erl)
+	CoverSetup(),
 	case eunit:test($1, [$(EUNIT_OPTS)]) of
 		ok -> ok;
 		error -> halt(2)
 	end,
-	case {Enabled, "$(COVER)"} of
-		{false, _} -> ok;
-		{_, ""} -> ok;
-		_ ->
-			cover:export("$(COVER_DATA_DIR)/eunit.coverdata")
-	end,
+	CoverExport("$(COVER_DATA_DIR)/eunit.coverdata"),
 	halt()
 endef
 
@@ -6773,6 +6805,7 @@ ifeq ($(filter proper,$(DEPS) $(TEST_DEPS)),proper)
 tests:: proper
 
 define proper_check.erl
+	$(call cover.erl)
 	code:add_pathsa([
 		"$(call core_native_path,$(CURDIR)/ebin)",
 		"$(call core_native_path,$(DEPS_DIR)/*/ebin)",
@@ -6788,13 +6821,16 @@ define proper_check.erl
 			end
 		|| {F, 0} <- M:module_info(exports)])
 	end,
-	try
-		case $(1) of
+	try begin
+		CoverSetup(),
+		Res = case $(1) of
 			all -> [true] =:= lists:usort([Module(M) || M <- [$(call comma_list,$(3))]]);
 			module -> Module($(2));
 			function -> proper:quickcheck($(2), nocolors)
-		end
-	of
+		end,
+		CoverExport("$(COVER_DATA_DIR)/proper.coverdata"),
+		Res
+	end of
 		true -> halt(0);
 		_ -> halt(1)
 	catch error:undef ->
@@ -6805,15 +6841,15 @@ endef
 
 ifdef t
 ifeq (,$(findstring :,$(t)))
-proper: test-build
+proper: test-build cover-data-dir
 	$(verbose) $(call erlang,$(call proper_check.erl,module,$(t)))
 else
-proper: test-build
+proper: test-build cover-data-dir
 	$(verbose) echo Testing $(t)/0
 	$(verbose) $(call erlang,$(call proper_check.erl,function,$(t)()))
 endif
 else
-proper: test-build
+proper: test-build cover-data-dir
 	$(eval MODULES := $(patsubst %,'%',$(sort $(notdir $(basename \
 		$(wildcard ebin/*.beam) $(call core_find,$(TEST_DIR)/,*.beam))))))
 	$(gen_verbose) $(call erlang,$(call proper_check.erl,all,undefined,$(MODULES)))
@@ -6834,14 +6870,13 @@ ifneq ($(wildcard src/),)
 PROTO_FILES := $(filter %.proto,$(ALL_SRC_FILES))
 ERL_FILES += $(addprefix src/,$(patsubst %.proto,%_pb.erl,$(notdir $(PROTO_FILES))))
 
-ifeq ($(words $(PROTO_FILES)),0)
+ifeq ($(PROTO_FILES),)
 $(ERLANG_MK_TMP)/last-makefile-change-protobuffs:
 	$(verbose) :
 else
 # Rebuild proto files when the Makefile changes.
 # We exclude $(PROJECT).d to avoid a circular dependency.
-$(ERLANG_MK_TMP)/last-makefile-change-protobuffs: $(filter-out $(PROJECT).d,$(MAKEFILE_LIST))
-	$(verbose) mkdir -p $(ERLANG_MK_TMP)
+$(ERLANG_MK_TMP)/last-makefile-change-protobuffs: $(filter-out $(PROJECT).d,$(MAKEFILE_LIST)) | $(ERLANG_MK_TMP)
 	$(verbose) if test -f $@; then \
 		touch $(PROTO_FILES); \
 	fi
@@ -6872,9 +6907,11 @@ define compile_proto.erl
 endef
 endif
 
+ifneq ($(PROTO_FILES),)
 $(PROJECT).d:: $(PROTO_FILES)
 	$(verbose) mkdir -p ebin/ include/
 	$(if $(strip $?),$(proto_verbose) $(call erlang,$(call compile_proto.erl,$?)))
+endif
 endif
 
 # Copyright (c) 2013-2016, Loïc Hoguin <essen@ninenines.eu>
@@ -6917,8 +6954,7 @@ distclean:: distclean-relx-rel
 
 # Plugin-specific targets.
 
-$(RELX):
-	$(verbose) mkdir -p $(ERLANG_MK_TMP)
+$(RELX): | $(ERLANG_MK_TMP)
 	$(gen_verbose) $(call core_http_get,$(RELX),$(RELX_URL))
 	$(verbose) chmod +x $(RELX)
 
@@ -7120,17 +7156,21 @@ ifeq ($(filter triq,$(DEPS) $(TEST_DEPS)),triq)
 tests:: triq
 
 define triq_check.erl
+	$(call cover.erl)
 	code:add_pathsa([
 		"$(call core_native_path,$(CURDIR)/ebin)",
 		"$(call core_native_path,$(DEPS_DIR)/*/ebin)",
 		"$(call core_native_path,$(TEST_DIR))"]),
-	try
-		case $(1) of
+	try begin
+		CoverSetup(),
+		Res = case $(1) of
 			all -> [true] =:= lists:usort([triq:check(M) || M <- [$(call comma_list,$(3))]]);
 			module -> triq:check($(2));
 			function -> triq:check($(2))
-		end
-	of
+		end,
+		CoverExport("$(COVER_DATA_DIR)/triq.coverdata"),
+		Res
+	end of
 		true -> halt(0);
 		_ -> halt(1)
 	catch error:undef ->
@@ -7141,15 +7181,15 @@ endef
 
 ifdef t
 ifeq (,$(findstring :,$(t)))
-triq: test-build
+triq: test-build cover-data-dir
 	$(verbose) $(call erlang,$(call triq_check.erl,module,$(t)))
 else
-triq: test-build
+triq: test-build cover-data-dir
 	$(verbose) echo Testing $(t)/0
 	$(verbose) $(call erlang,$(call triq_check.erl,function,$(t)()))
 endif
 else
-triq: test-build
+triq: test-build cover-data-dir
 	$(eval MODULES := $(patsubst %,'%',$(sort $(notdir $(basename \
 		$(wildcard ebin/*.beam) $(call core_find,$(TEST_DIR)/,*.beam))))))
 	$(gen_verbose) $(call erlang,$(call triq_check.erl,all,undefined,$(MODULES)))
@@ -7201,9 +7241,14 @@ distclean-xref:
 # This file is part of erlang.mk and subject to the terms of the ISC License.
 
 COVER_REPORT_DIR ?= cover
-COVER_DATA_DIR ?= $(CURDIR)
+COVER_DATA_DIR ?= $(COVER_REPORT_DIR)
 
-# Hook in coverage to ct
+ifdef COVER
+COVER_APPS ?= $(notdir $(ALL_APPS_DIRS))
+COVER_DEPS ?=
+endif
+
+# Code coverage for Common Test.
 
 ifdef COVER
 ifdef CT_RUN
@@ -7213,11 +7258,42 @@ test-build:: $(TEST_DIR)/ct.cover.spec
 $(TEST_DIR)/ct.cover.spec: cover-data-dir
 	$(gen_verbose) printf "%s\n" \
 		"{incl_app, '$(PROJECT)', details}." \
+		"{incl_dirs, '$(PROJECT)', [\"$(CURDIR)/ebin\" \
+			$(foreach a,$(COVER_APPS),$(comma) \"$(APPS_DIR)/$a/ebin\") \
+			$(foreach d,$(COVER_DEPS),$(comma) \"$(DEPS_DIR)/$d/ebin\")]}." \
 		'{export,"$(abspath $(COVER_DATA_DIR))/ct.coverdata"}.' > $@
 
 CT_RUN += -cover $(TEST_DIR)/ct.cover.spec
 endif
 endif
+endif
+
+# Code coverage for other tools.
+
+ifdef COVER
+define cover.erl
+	CoverSetup = fun() ->
+		Dirs = ["$(CURDIR)/ebin"
+			$(foreach a,$(COVER_APPS),$(comma) "$(APPS_DIR)/$a/ebin")
+			$(foreach d,$(COVER_DEPS),$(comma) "$(DEPS_DIR)/$d/ebin")],
+		[begin
+			case filelib:is_dir(Dir) of
+				false -> false;
+				true ->
+					case cover:compile_beam_directory(Dir) of
+						{error, _} -> halt(1);
+						_ -> true
+					end
+			end
+		end || Dir <- Dirs]
+	end,
+	CoverExport = fun(Filename) -> cover:export(Filename) end,
+endef
+else
+define cover.erl
+	CoverSetup = fun() -> ok end,
+	CoverExport = fun(_) -> ok end,
+endef
 endif
 
 # Core targets
@@ -7279,7 +7355,9 @@ ifneq ($(COVER_REPORT_DIR),)
 
 cover-report-clean:
 	$(gen_verbose) rm -rf $(COVER_REPORT_DIR)
+ifneq ($(COVER_REPORT_DIR),$(COVER_DATA_DIR))
 	$(if $(shell ls -A $(COVER_DATA_DIR)/),,$(verbose) rmdir $(COVER_DATA_DIR))
+endif
 
 ifeq ($(COVERDATA),)
 cover-report:
@@ -7454,9 +7532,8 @@ $(ERLANG_MK_RECURSIVE_DEPS_LIST) \
 $(ERLANG_MK_RECURSIVE_DOC_DEPS_LIST) \
 $(ERLANG_MK_RECURSIVE_REL_DEPS_LIST) \
 $(ERLANG_MK_RECURSIVE_TEST_DEPS_LIST) \
-$(ERLANG_MK_RECURSIVE_SHELL_DEPS_LIST):
+$(ERLANG_MK_RECURSIVE_SHELL_DEPS_LIST): | $(ERLANG_MK_TMP)
 ifeq ($(IS_APP)$(IS_DEP),)
-	$(verbose) mkdir -p $(ERLANG_MK_TMP)
 	$(verbose) rm -f $(ERLANG_MK_RECURSIVE_TMP_LIST)
 endif
 ifndef IS_APP
