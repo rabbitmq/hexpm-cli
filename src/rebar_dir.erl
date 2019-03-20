@@ -142,7 +142,7 @@ local_cache_dir(Dir) ->
 get_cwd() ->
     {ok, Dir} = file:get_cwd(),
     %% On windows cwd may return capital letter for drive,
-    %% for example C:/foobar. But as said in http://www.erlang.org/doc/man/filename.html#join-1
+    %% for example C:/foobar. But as said in https://www.erlang.org/doc/man/filename.html#join-1
     %% filename:join/1,2 anyway will convert drive-letter to lowercase, so we have to "internalize"
     %% cwd as soon as it possible.
     filename:join([Dir]).
