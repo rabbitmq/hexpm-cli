@@ -28,5 +28,5 @@ help_cmd_test() ->
 
 search_cmd_test() ->
     ?assertMatch(
-       [$R, $e, $s, $u, $l, $t, $s, $:, $\n | _],
+       [_, _, _, _, _, _, _, _, _, _, _, _, _, $N, $a, $m, $e, _ | _],
        ?cmd("./hexpm search rabbit_common")).
