@@ -80,6 +80,8 @@ try_consult1(File) ->
             throw(?PRV_ERROR({bad_term_file, File, Reason}))
     end.
 
+%% @doc Parse a sys.config file and return the configuration terms
+%% for all its potentially nested configs.
 -spec consult_config(rebar_state:t(), string()) -> [[tuple()]].
 consult_config(State, Filename) ->
     Fullpath = filename:join(rebar_dir:root_dir(State), Filename),
@@ -88,6 +90,18 @@ consult_config(State, Filename) ->
         [T] -> T;
         [] -> []
     end,
+    consult_config_terms(State, Config).
+
+%% @doc From a parsed sys.config file, expand all the terms to include
+%% its potential nested configs. It is also possible that no sub-terms
+%% (i.e. the config file does not refer to "some/other/file.config")
+%% that the input term is returned as-is.
+%%
+%% This function is added mostly to help with variable substitution
+%% and evaluation of 'sys.config.src' files, giving a way to handle
+%% expansion that is separate from regular config handling.
+-spec consult_config_terms(rebar_state:t(), [tuple()]) -> [[tuple()]].
+consult_config_terms(State, Config) ->
     JoinedConfig = lists:flatmap(
         fun (SubConfig) when is_list(SubConfig) ->
             case lists:suffix(".config", SubConfig) of
@@ -203,16 +217,27 @@ cp_r([], _Dest) ->
     ok;
 cp_r(Sources, Dest) ->
     case os:type() of
-        {unix, _} ->
+        {unix, Os} ->
             EscSources = [rebar_utils:escape_chars(Src) || Src <- Sources],
             SourceStr = rebar_string:join(EscSources, " "),
+            % On darwin the following cp command will cp everything inside
+            % target vs target and everything inside, so we chop the last char
+            % off if it is a '/'
+            Source = case {Os == darwin, lists:last(SourceStr) == $/} of
+                {true, true} ->
+                    rebar_string:trim(SourceStr, trailing, "/");
+                {true, false} ->
+                    SourceStr;
+                {false, _} ->
+                    SourceStr
+            end,
             % ensure destination exists before copying files into it
             {ok, []} = rebar_utils:sh(?FMT("mkdir -p ~ts",
                            [rebar_utils:escape_chars(Dest)]),
                       [{use_stdout, false}, abort_on_error]),
             {ok, []} = rebar_utils:sh(?FMT("cp -Rp ~ts \"~ts\"",
-                                           [SourceStr, rebar_utils:escape_double_quotes(Dest)]),
-                                      [{use_stdout, false}, abort_on_error]),
+                                           [Source, rebar_utils:escape_double_quotes(Dest)]),
+                                      [{use_stdout, true}, abort_on_error]),
             ok;
         {win32, _} ->
             lists:foreach(fun(Src) -> ok = cp_r_win32(Src,Dest) end, Sources),
