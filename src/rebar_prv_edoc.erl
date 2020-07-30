@@ -59,3 +59,6 @@ add_to_paths([{doc_path, Paths}|T], Path) ->
 add_to_paths([H|T], Path) ->
     [H | add_to_paths(T, Path)].
 -endif.
+
+%% hexpm-cli: merge_opts/2 and associated functions are removed because they
+%% are unused.

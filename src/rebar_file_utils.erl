@@ -28,6 +28,7 @@
 
 -export([try_consult/1,
          consult_config/2,
+         consult_config_terms/2,
          format_error/1,
          symlink_or_copy/2,
          rm_rf/1,
