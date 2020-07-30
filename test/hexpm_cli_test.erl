@@ -22,11 +22,18 @@ dash_v_test() ->
 
 help_cmd_test() ->
     ?assertMatch(
-       [$U,$s,$a,$g,$e,$:,$\s,
-        $r,$e,$b,$a,$r,$3,$\s,$h,$e,$x,$\s,$p,$u,$b,$l,$i,$s,$h | _],
-       ?cmd("./hexpm help publish")).
+       match,
+       re:run(
+         ?cmd("./hexpm help publish"),
+         "^Usage: rebar3 hex publish",
+         [{capture, none}, multiline])
+      ).
 
 search_cmd_test() ->
     ?assertMatch(
-       [_, _, _, _, _, _, _, _, _, _, _, _, _, $N, $a, $m, $e, _ | _],
-       ?cmd("./hexpm search rabbit_common")).
+       match,
+       re:run(
+         ?cmd("./hexpm search rabbit_common"),
+         "^rabbit_common\s+.*https://hex\\.pm/packages/rabbit_common",
+         [{capture, none}, multiline])
+      ).
