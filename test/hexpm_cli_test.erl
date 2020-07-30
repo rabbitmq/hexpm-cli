@@ -28,12 +28,3 @@ help_cmd_test() ->
          "^Usage: rebar3 hex publish",
          [{capture, none}, multiline])
       ).
-
-search_cmd_test() ->
-    ?assertMatch(
-       match,
-       re:run(
-         ?cmd("./hexpm search rabbit_common"),
-         "^rabbit_common\s+.*https://hex\\.pm/packages/rabbit_common",
-         [{capture, none}, multiline])
-      ).

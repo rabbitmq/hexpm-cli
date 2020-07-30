@@ -4,13 +4,14 @@ sudo: false
 
 language: erlang
 otp_release:
-  - "19.3"
-  - "20.0"
-  - "21.0"
+  - "21.3"
+  - "22.3"
+  - "23.0"
 
 script:
   - make escript FULL=1
-  - ./hexpm search rabbit_common
+  # We do the following command to fetch the Hex plugin.
+  - ./hexpm help || (cat rebar3.crashdump && exit 1)
   - make tests FULL=1
 
 addons:
