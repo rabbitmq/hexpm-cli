@@ -6,6 +6,7 @@
          new/3,
          new/4,
          new/5,
+         app_to_map/1,
          update_opts/3,
          update_opts/2,
          update_opts_deps/2,
@@ -24,15 +25,21 @@
          parent/2,
          original_vsn/1,
          original_vsn/2,
+         vsn/1,
+         vsn/2,
          priv_dir/1,
          applications/1,
          applications/2,
+         included_applications/1,
+         included_applications/2,
          profiles/1,
          profiles/2,
          deps/1,
          deps/2,
          dep_level/1,
          dep_level/2,
+         fetch_dir/1,
+         fetch_dir/2,
          dir/1,
          dir/2,
          out_dir/1,
@@ -81,14 +88,17 @@
                      app_file_src_script:: file:filename_all() | undefined,
                      app_file           :: file:filename_all() | undefined,
                      original_vsn       :: binary() | undefined,
+                     vsn                :: binary() | undefined,
                      parent=root        :: binary() | root,
                      app_details=[]     :: list(),
                      applications=[]    :: list(),
+                     included_applications=[] :: [atom()],
                      deps=[]            :: list(),
                      profiles=[default] :: [atom()],
                      default=dict:new() :: rebar_dict(),
                      opts=dict:new()    :: rebar_dict(),
                      dep_level=0        :: integer(),
+                     fetch_dir          :: file:name(),
                      dir                :: file:name(),
                      out_dir            :: file:name(),
                      ebin_dir           :: file:name(),
@@ -124,6 +134,7 @@ new(AppName) ->
                  {ok, t()}.
 new(AppName, Vsn) ->
     {ok, #app_info_t{name=rebar_utils:to_binary(AppName),
+                     vsn=Vsn,
                      original_vsn=Vsn}}.
 
 %% @doc build a complete version of the app info with all fields set.
@@ -131,7 +142,9 @@ new(AppName, Vsn) ->
                  {ok, t()}.
 new(AppName, Vsn, Dir) ->
     {ok, #app_info_t{name=rebar_utils:to_binary(AppName),
+                     vsn=Vsn,
                      original_vsn=Vsn,
+                     fetch_dir=rebar_utils:to_list(Dir),
                      dir=rebar_utils:to_list(Dir),
                      out_dir=rebar_utils:to_list(Dir),
                      ebin_dir=filename:join(rebar_utils:to_list(Dir), "ebin")}}.
@@ -141,7 +154,9 @@ new(AppName, Vsn, Dir) ->
                  {ok, t()}.
 new(AppName, Vsn, Dir, Deps) ->
     {ok, #app_info_t{name=rebar_utils:to_binary(AppName),
+                     vsn=Vsn,
                      original_vsn=Vsn,
+                     fetch_dir=rebar_utils:to_list(Dir),
                      dir=rebar_utils:to_list(Dir),
                      out_dir=rebar_utils:to_list(Dir),
                      ebin_dir=filename:join(rebar_utils:to_list(Dir), "ebin"),
@@ -153,11 +168,36 @@ new(AppName, Vsn, Dir, Deps) ->
 new(Parent, AppName, Vsn, Dir, Deps) ->
     {ok, #app_info_t{name=rebar_utils:to_binary(AppName),
                      parent=Parent,
+                     vsn=Vsn,
                      original_vsn=Vsn,
+                     fetch_dir=rebar_utils:to_list(Dir),
                      dir=rebar_utils:to_list(Dir),
                      out_dir=rebar_utils:to_list(Dir),
                      ebin_dir=filename:join(rebar_utils:to_list(Dir), "ebin"),
                      deps=Deps}}.
+
+-spec app_to_map(t()) -> #{name := atom(),
+                           vsn := string(),
+                           applications := [atom()],
+                           included_applications := [atom()],
+                           dir := file:name(),
+                           out_dir := file:name(),
+                           ebin_dir := file:name(),
+                           link := boolean()}.
+app_to_map(#app_info_t{name=Name,
+                       vsn=Vsn,
+                       applications=Applications,
+                       included_applications=IncludedApplications,
+                       out_dir=OutDir,
+                       ebin_dir=EbinDir}) ->
+    #{name => ec_cnv:to_atom(Name),
+      vsn => Vsn,
+      applications => Applications,
+      included_applications => IncludedApplications,
+      dir => OutDir,
+      out_dir => OutDir,
+      ebin_dir => EbinDir,
+      link => false}.
 
 %% @doc update the opts based on the contents of a config
 %% file for the app
@@ -396,6 +436,16 @@ original_vsn(#app_info_t{original_vsn=Vsn}) ->
 original_vsn(AppInfo=#app_info_t{}, Vsn) ->
     AppInfo#app_info_t{original_vsn=Vsn}.
 
+%% @doc returns the version of the app after evaluation
+-spec vsn(t()) -> binary().
+vsn(#app_info_t{vsn=Vsn}) ->
+    Vsn.
+
+%% @doc sets the evaluated vsn of the app
+-spec vsn(t(), binary() | string()) -> t().
+vsn(AppInfo=#app_info_t{}, Vsn) ->
+    AppInfo#app_info_t{vsn=Vsn}.
+
 %% @doc returns the list of applications the app depends on.
 -spec applications(t()) -> list().
 applications(#app_info_t{applications=Applications}) ->
@@ -406,6 +456,17 @@ applications(#app_info_t{applications=Applications}) ->
 -spec applications(t(), list()) -> t().
 applications(AppInfo=#app_info_t{}, Applications) ->
     AppInfo#app_info_t{applications=Applications}.
+
+%% @doc returns the list of included_applications the app depends on.
+-spec included_applications(t()) -> list().
+included_applications(#app_info_t{included_applications=Applications}) ->
+    Applications.
+
+%% @doc sets the list of applications the app depends on.
+%% Should be obtained from the app file.
+-spec included_applications(t(), list()) -> t().
+included_applications(AppInfo=#app_info_t{}, Applications) ->
+    AppInfo#app_info_t{included_applications=Applications}.
 
 %% @doc returns the list of active profiles
 -spec profiles(t()) -> list().
@@ -438,6 +499,16 @@ dep_level(#app_info_t{dep_level=Level}) ->
 -spec dep_level(t(), non_neg_integer()) -> t().
 dep_level(AppInfo=#app_info_t{}, Level) ->
     AppInfo#app_info_t{dep_level=Level}.
+
+%% @doc returns the directory to fetch the dep source to
+-spec fetch_dir(t()) -> file:name().
+fetch_dir(#app_info_t{fetch_dir=FetchDir}) ->
+    FetchDir.
+
+%% @doc returns the directory to fetch the dep source to
+-spec fetch_dir(t(), file:name()) -> file:name().
+fetch_dir(AppInfo=#app_info_t{}, FetchDir) ->
+    AppInfo#app_info_t{fetch_dir=FetchDir}.
 
 %% @doc returns the directory that contains the app.
 -spec dir(t()) -> file:name().

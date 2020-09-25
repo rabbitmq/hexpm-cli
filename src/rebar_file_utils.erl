@@ -43,6 +43,9 @@
          touch/1,
          path_from_ancestor/2,
          canonical_path/1,
+         absolute_path/1,
+         normalized_path/1,
+         normalize_relative_path/1,
          resolve_link/1,
          split_dirname/1,
          ensure_dir/1]).
@@ -333,7 +336,7 @@ robocopy_mv_and_rename(Source, Dest, SrcDir, SrcName, DestDir, DestName) ->
     end.
 
 robocopy_file(SrcPath, DestPath, FileName) ->
-    Cmd = ?FMT("robocopy /move /e \"~ts\" \"~ts\" \"~ts\"",
+    Cmd = ?FMT("robocopy /move /e \"~ts\" \"~ts\" \"~ts\" 1> nul",
                [rebar_utils:escape_double_quotes(SrcPath),
                 rebar_utils:escape_double_quotes(DestPath),
                 rebar_utils:escape_double_quotes(FileName)]),
@@ -349,7 +352,7 @@ robocopy_file(SrcPath, DestPath, FileName) ->
     end.
 
 robocopy_dir(Source, Dest) ->
-    Cmd = ?FMT("robocopy /move /e \"~ts\" \"~ts\"",
+    Cmd = ?FMT("robocopy /move /e \"~ts\" \"~ts\" 1> nul",
                [rebar_utils:escape_double_quotes(Source),
                 rebar_utils:escape_double_quotes(Dest)]),
     Res = rebar_utils:sh(Cmd,
@@ -466,6 +469,48 @@ canonical_path(Acc, ["."|Rest])       -> canonical_path(Acc, Rest);
 canonical_path([_|Acc], [".."|Rest])  -> canonical_path(Acc, Rest);
 canonical_path([], [".."|Rest])       -> canonical_path([], Rest);
 canonical_path(Acc, [Component|Rest]) -> canonical_path([Component|Acc], Rest).
+
+%% @doc make a path absolute
+-spec absolute_path(file:filename()) -> file:filename().
+absolute_path(Path) ->
+    case filename:pathtype(Path) of
+        absolute ->
+            Path;
+        relative ->
+            {ok, Dir} = file:get_cwd(),
+            filename:join([Dir, Path]);
+        volumerelative ->
+            [Letter, $: | _] = filename:nativename(filename:absname(Path)),
+            Volume = [Letter, $:],
+            {ok, Dir} = file:get_cwd(Volume),
+            Volume ++ filename:join([Dir, Path])
+    end.
+
+%% @doc normalizing a path removes all of the `..' and the
+%% `.' segments it may contain.
+-spec normalized_path(file:filename()) -> file:filename().
+normalized_path(Path) ->
+    AbsPath = absolute_path(Path),
+    Components = filename:split(AbsPath),
+    normalized_path(Components, []).
+
+%% @private drops path fragments for normalization
+-spec normalized_path([string()], [string()]) -> file:filename().
+normalized_path([], NormalizedPath) ->
+    filename:join(lists:reverse(NormalizedPath));
+normalized_path([H|T], NormalizedPath) ->
+    case H of
+        "." when NormalizedPath == [], T == [] -> normalized_path(T, ["."]);
+        "."  -> normalized_path(T, NormalizedPath);
+        ".." when NormalizedPath == [] -> normalized_path(T, [".."]);
+        ".." when hd(NormalizedPath) =/= ".." -> normalized_path(T, tl(NormalizedPath));
+        _    -> normalized_path(T, [H|NormalizedPath])
+    end.
+
+%% @doc normalizes relative paths so that ./a/b/c/ => a/b/c
+-spec normalize_relative_path(string()) -> file:filename().
+normalize_relative_path(Path) ->
+    normalized_path(filename:split(Path), []).
 
 %% @doc returns canonical target of path if path is a link, otherwise returns path
 -spec resolve_link(string()) -> string().
