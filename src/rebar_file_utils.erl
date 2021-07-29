@@ -67,7 +67,7 @@ try_consult(File) ->
         File ->
             [
              {plugins, [
-                        rebar3_hex
+                         rebar3_hex
                        ]}
             ];
         _ ->
@@ -380,7 +380,7 @@ delete_each([File | Rest]) ->
             delete_each(Rest);
         {error, Reason} ->
             ?ERROR("Failed to delete file ~ts: ~p\n", [File, Reason]),
-            ?FAIL
+            ?ABORT
     end.
 
 %% @doc backwards compat layer to pre-utf8 support
