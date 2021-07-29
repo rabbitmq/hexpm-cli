@@ -66,9 +66,9 @@ try_consult(File) ->
     case rebar_dir:global_config() of
         File ->
             [
-             %% {plugins, [
-             %%            rebar3_hex
-             %%           ]}
+             {plugins, [
+                         rebar3_hex
+                       ]}
             ];
         _ ->
             try_consult1(File)
