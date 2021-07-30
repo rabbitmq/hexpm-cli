@@ -19,6 +19,8 @@ main([HelpFlag | _])
     run_rebar(["help", "hex"]);
 main(["help" | Args]) ->
     run_rebar(["help", "hex" | Args]);
+main(["publish" | _] = Args) ->
+    run_rebar(["hex" | Args] ++ ["--without-docs"]);
 main(Args) ->
     run_rebar(["hex" | Args]).
 
