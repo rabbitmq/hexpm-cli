@@ -20,7 +20,7 @@ main([HelpFlag | _])
 main(["help" | Args]) ->
     run_rebar(["help", "hex" | Args]);
 main(["publish" | _] = Args) ->
-    run_rebar(["hex" | Args] ++ ["--without-docs"]);
+    run_rebar(["hex" | Args]);
 main(Args) ->
     run_rebar(["hex" | Args]).
 
