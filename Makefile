@@ -1,5 +1,5 @@
 PROJECT = hexpm-cli
-PROJECT_VERSION = 0.8.0
+PROJECT_VERSION = 0.9.0
 PROJECT_DESCRIPTION = CLI on top of rebar3_hex plugin
 define PROJECT_ENV
 [
@@ -56,7 +56,7 @@ define PROJECT_ENV
 endef
 
 DEPS = rebar
-dep_rebar_commit = 3.16.1
+dep_rebar_commit = 3.18.0
 
 ESCRIPT_FILE = hexpm
 
