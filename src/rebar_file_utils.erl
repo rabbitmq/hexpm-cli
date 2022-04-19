@@ -182,8 +182,12 @@ win32_mklink_ok(_, _) ->
 
 %% @private
 is_symlink(Filename) ->
-    {ok, Info} = file:read_link_info(Filename),
-    Info#file_info.type == symlink.
+    case file:read_link_info(Filename) of
+        {ok, Info} ->
+            Info#file_info.type == symlink;
+        _ ->
+            false
+    end.
 
 %% @private
 %% drops the last 'node' of the filename, presumably the last dir such as 'src'
@@ -416,7 +420,7 @@ system_tmpdir(PathComponents) ->
         "win32" ->
             "./tmp";
         _SysArch ->
-            "/tmp"
+            os:getenv("TMPDIR", "/tmp")
     end,
     filename:join([Tmp|PathComponents]).
 

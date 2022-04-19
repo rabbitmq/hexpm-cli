@@ -2,6 +2,8 @@
 .sw?
 .*.sw?
 *.beam
+*.dump
+*dump
 /.erlang.mk/
 /cover/
 /deps/
